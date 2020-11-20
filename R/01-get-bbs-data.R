@@ -1,14 +1,12 @@
-# Get data
-
 library(bbsBayes)
 library(tidyverse)
 library(here)
 
 # note this requires mbjoseph/bbsBayes@noninteractive from GitHub
-# remotes::install_github("mbjoseph/bbsBayes@noninteractive")
-fetch_bbs_data(level = 'stop') 
+#remotes::install_github("mbjoseph/bbsBayes@noninteractive")
+#fetch_bbs_data(level = 'stop')
 
-load(list.files("~/.local/share/bbsBayes", full.names = TRUE))
+load("bbs_stop_data.RData")
 
 historical_dir <- here('data', 'bbs_aggregated')
 dir.create(historical_dir, recursive = TRUE, showWarnings = FALSE)
