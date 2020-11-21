@@ -1,0 +1,18 @@
+name: neural-ecology
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - jupyterlab
+  - jupyter
+  - matplotlib
+  - numpy
+  - pandas
+  - python>=3.6
+  - pip
+  - tqdm
+  - pytorch
+  - torchvision
+  - cudatoolkit
+  - pip:
+      - pyro-ppl
