@@ -1,17 +1,22 @@
+##############################################################
+# 06 compare performance
+##############################################################
 library(tidyverse)
 library(pbapply)
 library(parallel)
 library(assertthat)
 library(pROC)
-library(patchwork)
+library(patchwork)         # install.packages("patchwork")
 source('R/utils.R')
 
 theme_set(theme_minimal() + 
             theme(panel.grid.minor = element_blank()))
 
-species <- list.files('out', '_ssnet.csv', full.names = TRUE) %>%
+# 得到的output是每個物種一個csv檔 存在out資料夾
+# 讀入這些csv檔的名字
+species <- list.files(path = 'out', pattern = '_ssnet.csv', full.names = TRUE) %>%
   gsub('out/', '', .) %>%
-  gsub('\\_ssnet.csv', '', .)
+  gsub('\\_ss.csv', '', .)
 
 load_ll(species[1])
 
