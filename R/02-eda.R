@@ -1,10 +1,18 @@
+##############################################################
+# 02 eda
+##############################################################
+
 library(tidyverse)
 library(assertthat)
 library(sf)
-library(vroom)
+library(vroom)           # install.packages("vroom")
 library(parallel)
 library(pbapply)
 
+
+# ********** read the data from `data/bbs_aggregated` *********** # 
+
+# vroom::vroom reads (large) files fast
 counts <- vroom('data/bbs_aggregated/bird.csv') %>%
   rename(sp.bbs = AOU) %>%
   mutate(route_id = paste(sprintf('%02d', statenum), 
@@ -38,28 +46,48 @@ routes <- read_csv('data/bbs_aggregated/route.csv') %>%
          )
 
 
+# ********** plot? ********** #
+str(routes)
 routes %>%
   ggplot(aes(StartTemp, EndTemp)) + 
   geom_point(alpha = .1) + 
   facet_wrap(~TempScale)
 
-# ensure that all routes in the count data have route-level data
+
+# ********** ensure that all routes in the count data have route-level data ********** #
+
+# 把count中route_id沒有在routes中、RouteDataID沒有在routes中的移除掉
 counts <- counts %>%
   filter(route_id %in% routes$route_id, 
          RouteDataID %in% routes$RouteDataID)
 
+# 確認count中的route在routes中都有對應
+# (assert_that: Assert that certain conditions are true)
 assert_that(all(counts$route_id %in% routes$route_id))
 assert_that(all(counts$RouteDataID %in% routes$RouteDataID))
 
-species <- read_csv('data/bbs_aggregated/species.csv')
 
+# ********** the species data ********** #
+
+species <- read_csv('data/bbs_aggregated/species.csv')
+str(species)
+
+
+# ********** remove certain species ********** #
+
+# to be removed: unidentified? and hybrid
 rm_sp <- species %>%
   filter(grepl('unid', english, ignore.case = TRUE) | grepl('hybrid', english))
 
+# remove these species
 counts <- counts %>%
   filter(!(sp.bbs %in% rm_sp$sp.bbs))
 
+
+# **********  ********** #
+
 # compute the number of stops where each species was seen
+# 用stop1 ~ stop50 算row sum
 counts$y <- counts %>%
   select(starts_with('Stop')) %>%
   as.matrix %>%
@@ -69,6 +97,7 @@ counts$y <- counts %>%
 
 count_combos <- counts %>%
   select(RouteDataID, sp.bbs, y) %>%
+  # complete: Turns implicit missing values into explicit missing values
   complete(sp.bbs, RouteDataID, fill = list(y = 0)) %>%
   left_join(select(routes, RouteDataID, Year, route_id)) %>%
   arrange(route_id, Year, RouteDataID) %>%

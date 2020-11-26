@@ -1,16 +1,23 @@
+##############################################################
+# 03 extract route features 
+##############################################################
+
 library(sf)
-library(fasterize)
+library(fasterize)     # install.packages("fasterize")
 library(raster)
 library(tidyverse)
-library(RStoolbox)
-library(elevatr)
-library(rmapshaper)
-library(rnaturalearth)
+library(RStoolbox)     # install.packages("RStoolbox")
+library(elevatr)       # install.packages("elevatr")
+library(rmapshaper)    # install.packages("rmapshaper")
+library(rnaturalearth) 
 
-ecoregions <- st_read('data/NA_CEC_Eco_Level3.shp') %>%
+# ********** ecoregion data from US-EPA database ********** #
+# data source: ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/cec_na/
+ecoregions <- st_read('data/NA_CEC_Eco_Level3/NA_CEC_Eco_Level3.shp') %>%
   st_transform(4326)
 
-# Extract the ecoregion data for BBS routes -----------------
+
+# ********** extract the ecoregion data for BBS routes ********** #
 routes <- read_csv('data/cleaned/bbs_routes.csv') %>%
   mutate(route_id = paste(sprintf('%02d', statenum), 
                    sprintf('%03d', Route), 
@@ -35,24 +42,29 @@ get_ecoregions <- function(sf, ecoregions) {
 
 
 
-# Get bioclim data --------------------------------------------------------
+# ********** Get bioclim data ********** #
 
 bioclim_raster <- 'data/bioclim/bioclim_pca.rds'
 if (!file.exists(bioclim_raster)) {
-  download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.0/tif/base/wc2.0_5m_bio.zip', 
+  # download the file
+  # available data 2020/11/17: https://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_5m_bio.zip
+  # seems to be a new version
+  download.file('https://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_5m_bio.zip', 
                 'data/wc2.0_5m_bio.zip')
   dir.create('data/bioclim', showWarnings = FALSE)
   unzip('data/wc2.0_5m_bio.zip', exdir = 'data/bioclim')
+  # read the file
   bioclim_files <- list.files(path = 'data/bioclim', pattern = '.tif', 
                               full.names = TRUE)
   bioclim <- stack(bioclim_files) 
-  
+  # the parts that overlap with the ecoregion layer (shapefile)
   bioclim <- crop(bioclim, 
                   as(st_transform(ecoregions, crs(bioclim)), 'Spatial'))
   
   er_raster <- ecoregions %>%
     mutate(l3_int = as.numeric(factor(NA_L3KEY))) %>%
     st_transform(crs(bioclim)) %>%
+    # fasterize(): Rasterize an sf object of polygons
     fasterize(bioclim[[1]], field = "l3_int", fun = "first")
   
   bioclim <- bioclim %>%
@@ -64,7 +76,7 @@ if (!file.exists(bioclim_raster)) {
   bioclim_pca <- read_rds(bioclim_raster)
 }
 
-# first eight dimensions account for > 99% of the variance
+# ********** first eight dimensions account for > 99% of the variance ********** #
 summary(bioclim_pca$model)
 
 routes_sf <- routes %>%
@@ -75,7 +87,7 @@ routes_sf <- routes %>%
   get_ecoregions(ecoregions) %>%
   filter(!is.na(L3_KEY)) # one route was NA
 
-# extract PCs for BBS routes
+# ********** extract PCs for BBS routes ********** #
 bioclim_df <- routes_sf %>%
   st_transform(crs(bioclim_pca$map)) %>%
   raster::extract(bioclim_pca$map, .) %>%
@@ -83,7 +95,7 @@ bioclim_df <- routes_sf %>%
   dplyr::select(PC1:PC8) %>%
   mutate(route_id = routes_sf$route_id)
 
-# get elevation data
+# ********** get elevation data ********** #
 if (!file.exists('data/elevation.rds')) {
   elev <- get_elev_point(as(routes_sf, "Spatial"), src="aws", units="meters")
   write_rds(elev, 'data/elevation.rds')
@@ -94,8 +106,10 @@ elev_df <- as.data.frame(elev) %>%
   as_tibble() %>%
   dplyr::select(route_id, elevation)
 
-# get grip road density data
-roads_url <- 'http://geoservice.pbl.nl/download/opendata/GRIP4/GRIP4_density_total.zip'
+
+# ********** get grip road density data ********** #
+#roads_url <- 'http://geoservice.pbl.nl/download/opendata/GRIP4/GRIP4_density_total.zip'
+roads_url <- "https://dataportaal.pbl.nl/downloads/GRIP4/GRIP4_density_total.zip"   # available data source 2020/11/17
 if (!file.exists('data/grip4_total_dens_m_km2.asc')) {
   download.file(roads_url, destfile = file.path('data', basename(roads_url)))
   unzip(file.path('data', basename(roads_url)), exdir = 'data')
@@ -113,7 +127,7 @@ routes_sf$c_road_den <- c(scale(log(routes_sf$road_den + 1)))
 plot(routes_sf['c_road_den'], pch = 19, cex = .8)
 
 
-# Get distance to coastline data ------------------------------------------
+#  ********** Get distance to coastline data ********** #
 eco_union <- ecoregions %>%
   summarize
 
@@ -123,18 +137,22 @@ simple_eco_union <- ms_simplify(eco_union, keep = 0.001) %>%
 
 plot(simple_eco_union)
 
+# calculate the distance
 routes_sf$dist_shore <- NA
-pb <- txtProgressBar(max = nrow(routes_sf), style = 3)
-for (j in seq_len(nrow(routes_sf))) {
-  routes_sf$dist_shore[j] <- st_distance(routes_sf[j, ], simple_eco_union)
-  setTxtProgressBar(pb, j)
+{
+  pb <- txtProgressBar(max = nrow(routes_sf), style = 3)
+  for (j in seq_len(nrow(routes_sf))) {
+    routes_sf$dist_shore[j] <- st_distance(routes_sf[j, ], simple_eco_union)
+    setTxtProgressBar(pb, j)
+  }
+  rm(pb , j)
 }
 
 
 
 
 
-# split data into partitions, blocking by level 3 ecoregion -----------------
+# ********** split data into partitions (train, validate, test), blocking by level 3 ecoregion ********** #
 set.seed(0)
 routes_partition <- routes_sf %>%
   as_tibble() %>%
@@ -160,5 +178,6 @@ routes_sf %>%
   left_join(distinct(routes, route_id, Latitude, Longitude)) %>%
   write_csv('data/cleaned/routes.csv')
 
+# ********** export the cleaned route feature shapefile ********** #
 st_write(routes_sf, 'data/cleaned/routes.shp', delete_dsn = TRUE)
 

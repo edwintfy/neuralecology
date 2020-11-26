@@ -16,16 +16,19 @@ theme_set(theme_minimal() +
 # 讀入這些csv檔的名字
 species <- list.files(path = 'out', pattern = '_ssnet.csv', full.names = TRUE) %>%
   gsub('out/', '', .) %>%
-  gsub('\\_ss.csv', '', .)
+  gsub('\\_ssnet.csv', '', .)
 
 load_ll(species[1])
 
 pboptions(use_lb = TRUE)
-cl <- makeCluster(parallel::detectCores())
+# Creates a set of copies of R running in parallel and communicating over sockets.
+cl <- makeCluster(parallel::detectCores())       # parallel::detectCores()... 4 cores on my mac
 clusterExport(cl, c('load_ll'))
+# Apply Operations using Clusters; These functions provide several ways to parallelize computations using a cluster.
 clusterEvalQ(cl, library(assertthat))
 clusterEvalQ(cl, library(tidyverse))
 clusterEvalQ(cl, source('R/utils.R'))
+# Adding Progress Bar to '*apply' Functions
 ll_dfs <- pblapply(species, load_ll, cl = cl)
 stopCluster(cl)
 

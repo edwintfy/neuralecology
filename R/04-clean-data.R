@@ -1,32 +1,39 @@
+##############################################################
+# 04 clean data
+##############################################################
 library(tidyverse)
 library(sf)
 library(assertthat)
 library(lubridate)
 library(vroom)
 
-routes <- read_csv('data/cleaned/routes.csv') %>%
+# ********** read data ********** #
+ 
+routes <- read_csv('data/cleaned/routes.csv') %>%                 # 各地（route_id）的features
   filter(!is.na(PC1), !is.na(L1_KEY), !is.na(elevation))
 
-counts <- vroom('data/cleaned/bbs_counts.csv') %>%
-  filter(route_id %in% routes$route_id)
-species <- read_csv('data/cleaned/bbs_species.csv')
-route_covariates <- read_csv('data/cleaned/bbs_routes.csv') %>%
+counts <- vroom('data/cleaned/bbs_counts.csv') %>%                # 某個物種（編號sp.bbs）在1997-2019間各年在各地（route_id）有沒有被觀察到
   filter(route_id %in% routes$route_id)
 
-long_route_covs <- route_covariates %>%
+species <- read_csv('data/cleaned/bbs_species.csv')               # encoding每個sp.bbs實際代表哪個物種
+
+route_covariates <- read_csv('data/cleaned/bbs_routes.csv') %>%   # 各地BBS觀測的資訊-- detection covariates
+  filter(route_id %in% routes$route_id)
+
+long_route_covs <- route_covariates %>%                           # route_covariates其中的幾個variables
   select(route_id, Year, StartTemp, EndTemp, BCR)
 
-# fewer than 1% of the start & end temp values are missing, so let's interpolate
-mean(is.na(long_route_covs$StartTemp))
-mean(is.na(long_route_covs$EndTemp))
+
+# ********** fewer than 1% of the start & end temp values are missing, so let's interpolate ********** #
+mean(is.na(long_route_covs$StartTemp))      # table(is.na(long_route_covs$StartTemp))
+mean(is.na(long_route_covs$EndTemp))        # table(is.na(long_route_covs$EndTemp))
 
 long_route_covs <- long_route_covs %>%
   group_by(route_id) %>%
-  mutate(StartTemp = ifelse(is.na(StartTemp), median(StartTemp), StartTemp), 
-         EndTemp = ifelse(is.na(EndTemp), median(EndTemp), EndTemp)) %>%
+  mutate(StartTemp = ifelse(is.na(StartTemp), median(StartTemp), StartTemp),     # StartTemp如果是NA的話以中位數代替
+         EndTemp = ifelse(is.na(EndTemp), median(EndTemp), EndTemp)) %>%         # EndTemp如果是NA的話以中位數代替
   ungroup %>%
-  # some route_ids have no temperature data at all, in those cases, group by
-  # bird conservation region
+  # some route_ids have no temperature data at all, in those cases, group by bird conservation region (BCR)
   group_by(BCR, Year) %>%
   mutate(StartTemp = ifelse(is.na(StartTemp), 
                             median(StartTemp, na.rm = TRUE), 
@@ -35,19 +42,21 @@ long_route_covs <- long_route_covs %>%
                           median(EndTemp, na.rm = TRUE), 
                           EndTemp)) %>%
   ungroup %>%
-  gather(which_temp, value, -route_id, -Year, - BCR) %>%
+  gather(which_temp, value, -route_id, -Year, - BCR) %>%             # pivot_longer; gather columns into rows
   mutate(route_id_year = paste(route_id, Year, sep = "_")) %>%
-  arrange(route_id, Year, which_temp)
+  arrange(route_id, Year, which_temp)                                # 依route_id, Year, which_temp排序
 
-assert_that(!any(is.na(long_route_covs$mean_temp)))
+# 看是不是所有NA都已經被取代掉
+assert_that(!any(is.na(long_route_covs$value))) # assert_that(!any(is.na(long_route_covs$mean_temp)))
 
+# take a look
 long_route_covs[1:1000, ] %>%
   ggplot(aes(x = Year, y = value, color = which_temp)) + 
   geom_point() + 
   facet_wrap(~ route_id)
 
 
-# Ensure that whenever we have bird detection data, we have survey temp. data
+# ********** Ensure that whenever we have bird detection data, we have survey temp data ********** #
 survey_counts_available <- counts %>%
   filter(sp.bbs == 10) %>% # choose an arbitrary species to check
   select(-sp.bbs) %>%
@@ -59,11 +68,12 @@ assert_that(
   all(survey_counts_available$route_id_year %in% long_route_covs$route_id_year))
 
 
+# ********** scaling for the route variables ********** #
 wind_df <- route_covariates %>%
   select(route_id, Year, StartWind, EndWind) %>%
   gather(var, value, -route_id, -Year) %>%
-  mutate(value = value / max(value)) %>%
-  unite(year_label, var, Year) %>%
+  mutate(value = value / max(value)) %>%           # 所有風速？數值除以最大值-- scaling?
+  unite(year_label, var, Year) %>%                 # unite several columns into one
   spread(year_label, value)
 
 
@@ -100,14 +110,15 @@ duration_df <- route_covariates %>%
 # detection covariates, they must also be in wide foramt
 wide_route_covs <- long_route_covs %>%
   select(-route_id_year, -BCR) %>%
-  mutate(value = c(scale(value))) %>%
+  mutate(value = c(scale(value))) %>%         # scaling: temperature
   unite(year_label, which_temp, Year) %>%
   spread(year_label, value) %>%
-  left_join(wind_df) %>%
-  left_join(sky_df) %>%
-  left_join(duration_df)
+  left_join(wind_df) %>%                      # combine wind
+  left_join(sky_df) %>%                       #         sky
+  left_join(duration_df)                      # duration
 
 
+# ********** scaling of the other route features ********** # 
 clean_routes <- routes %>%
   mutate(c_lat = c(scale(Latitude)), 
          c_lon = c(scale(Longitude)), 
@@ -115,6 +126,7 @@ clean_routes <- routes %>%
          c_elevation = c(scale(log(adj_elev))), 
          c_dist_shore = c(scale(log(dist_shore))))
 
+# ********** combine bird counts, species encoding, and route variables together ********** #
 bbs <- counts %>%
   left_join(species) %>%
   left_join(wide_route_covs) %>%
@@ -123,8 +135,8 @@ bbs <- counts %>%
 assert_that(all(bbs$route_id %in% clean_routes$route_id))
 
 
-# Generate summary stats about the size of the dataset
-summary_df <- tibble(n_routes = length(unique(clean_routes$route_id)), 
+# ********** Generate summary stats about the size of the dataset ********** #
+summary_df <- tibble(n_routes = length(unique(clean_routes$route_id)) , 
                      n_species = length(unique(bbs$sp.bbs)))
 summary_df <- bbs %>%
   left_join(clean_routes) %>%
