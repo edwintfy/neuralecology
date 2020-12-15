@@ -9,7 +9,7 @@ library(vroom)
 library(yardstick)
 library(rmapshaper)
 library(here)
-source('R/utils.R')
+source('utils.R')
 
 theme_set(theme_minimal() + 
             theme(panel.grid.minor = element_blank()))
