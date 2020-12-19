@@ -1,3 +1,6 @@
+##############################################################
+# 07 test-set check
+##############################################################
 library(tidyverse)
 library(pbapply)
 library(parallel)
@@ -6,7 +9,7 @@ library(sf)
 library(pROC)
 library(patchwork)
 library(vroom)
-library(yardstick)
+library(yardstick)       # install.packages("yardstick")
 library(rmapshaper)
 library(here)
 source('R/utils.R')
@@ -139,7 +142,7 @@ routes <- st_read('data/cleaned/routes.shp') %>%
   left_join(auc_df) %>%
   st_transform(3174)
 
-ecoregions <- st_read('data/NA_CEC_Eco_Level3.shp') %>%
+ecoregions <- st_read('data/NA_CEC_Eco_Level3/NA_CEC_Eco_Level3.shp') %>%
   st_transform(st_crs(routes)) %>%
   ms_simplify
 

@@ -1,7 +1,14 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+##############################################################
 # Neural Dynamic Occupancy Models for Breeding Bird Survey Data
+##############################################################
+
+
+# ====================
+# loading dependencies
+# ====================
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,16 +28,26 @@ import torch.backends.cudnn as cudnn
 import os
 import random
 
+# ====================
+# loading custom modules
+# ====================
 # custom modules
+# os.chdir("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/Neuralecology_VersionControl/Neuralecology_vc")
+# os.chdir("python")     # 把working directory設定到code所在的資料夾確保下面兩個自己寫的程式可以被讀進來
 import dataset
+# os.chdir("python") 
 import utils
 
+# ====================
 # Set device to the gpu if available
+# ====================
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 cudnn.deterministic = True
 cudnn.benchmark = True
 
+# ====================
 # Set seed for reproducibility
+# ====================
 def set_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
@@ -43,13 +60,17 @@ def set_seed(seed):
 
 set_seed(2147483647)
 
-
-## Reading and parsing the Breeding Bird Survey Data
+# ====================
+# Reading and parsing the Breeding Bird Survey Data
+# this function is based on the custom module "dataset"
+# ====================
 
 bbs_train = dataset.BBSData(dataset.bbs.query("group == 'train'"))
 bbs_valid = dataset.BBSData(dataset.bbs.query("group == 'validation'"))
 
+# ====================
 # loading one example
+# ====================
 ex_sp, ex_gn, ex_fm, ex_or, ex_l1, ex_x, ex_x_p, ex_y = bbs_train[0]
 
 # checking shapes
@@ -70,6 +91,10 @@ print(f"Number of orders is {nor}")
 print(f"Dimension of detection covariate vector is {nx_p}")
 
 
+# ====================
+# multi-species neural dynamic occupancy model
+# defining
+# ====================
 class MultiNet(nn.Module):
     """ Multispecies neural dynamic occupancy model. """
 
@@ -235,9 +260,10 @@ class MultiNet(nn.Module):
         }
         return out_dict
 
-
+# ====================
+# multi-species neural dynamic occupancy model
 # Training the neural network
-
+# ====================
 n_epoch = 5
 batch_size = 2 ** 11
 print(f"Batch size is {batch_size}")
@@ -286,8 +312,10 @@ for epoch in range(n_epoch):
 print("Validation loss for the multispecies model:")
 print([np.mean(l) for l in valid_loss])
 
-
+# ====================
+# multi-species neural dynamic occupancy model
 # Make and save predictions for each species
+# ====================
 print("Writing multispecies output for training & validation data.")
 for sp in tqdm(dataset.cat_ix["english"].keys()):
     net.eval()
@@ -326,6 +354,7 @@ for sp in tqdm(dataset.cat_ix["english"].keys()):
         psi0_df = pd.DataFrame(np.concatenate(sp_psi0), columns=["psi0"])
 
         sp_name_lower = re.sub(" ", "_", sp.lower())
+        os.chdir("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/Neuralecology_VersionControl/Neuralecology_vc")
         out_path = f"out/{sp_name_lower}_nnet.csv"
         res = pd.concat(
             (
@@ -341,8 +370,13 @@ for sp in tqdm(dataset.cat_ix["english"].keys()):
         )
         res.to_csv(out_path, index=False, na_rep="NA")
 
+os.chdir("python")
 
+
+# ====================
+# Single species neural dynamic occupancy model
 # Training species-specific models
+# ====================
 class OneSpeciesNet(nn.Module):
     """ Single species neural dynamic occupancy model. """
 
@@ -539,14 +573,24 @@ def fit_single_species_model(sp, model):
     del sp_train_loader
     del sp_valid_loader
 
-
+# ====================
 # iterate over species and fit a model for each
+# ====================
+os.chdir("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/Neuralecology_VersionControl/Neuralecology_vc")
+# batch_size = 2 ** 11
 print("Training and saving single-species results")
 for sp in tqdm(dataset.cat_ix["english"].keys()):
     fit_single_species_model(sp, model=OneSpeciesNet)
+os.chdar("python")
 
 
+
+
+
+
+# ====================
 # Training the final model
+# ====================
 final_net = MultiNet(
     num_sp=nsp,
     num_gn=ngn,
@@ -579,8 +623,11 @@ for epoch in range(n_epoch):
                 pb=True,
             )
         )
-
-## Save species-specific predictions
+        
+# ====================
+# Save species-specific predictions       
+# ====================
+os.chdir("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/Neuralecology_VersionControl/Neuralecology_vc")
 
 weight_dir = os.path.join("out", "weights")
 if not os.path.exists(weight_dir):
@@ -693,8 +740,9 @@ for sp in tqdm(dataset.cat_ix["english"].keys()):
             na_rep="NA",
         )
 
-
+# ====================
 # Write out final route vector representations
+# ====================
 
 h_phi_df = melt(
     np.concatenate(h_phi).reshape((-1, final_net.nt - 1, final_net.h_dim))

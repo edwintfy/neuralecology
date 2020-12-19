@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
-import torch
+import torch                # pip install torch
 from torch.utils.data import Dataset, DataLoader
+import os
+
+os.chdir("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/Neuralecology_VersionControl/Neuralecology_vc")
 
 # Load all of the BBS data into a DataFrame
 bbs = pd.merge(
