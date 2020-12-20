@@ -1,0 +1,192 @@
+---
+title: "Subsetting the BBS dataset"
+author: "Tze-Li Liu"
+date: "2020/12/20"
+output: html_document
+---
+```{R echo = FALSE , message = FALSE , warning = FALSE}
+library(dplyr) ; library(ggplot2) ; library(sf)
+```
+
+## import the route information 
+
+This file `clean_routes.csv` gives the description as well as some predictor variables of all the *routes* (the name for the *observation sites* in the BBS data). This file does not contain the presence data for the bird species. The presence data is stored in `bbs.csv` and it's 4.6GB. It not a good idea to open and close that file frequently XD. The  `route_id` column appears in both `clean_routes` and `bbs`, and this column is a unique identifier for all the routes in the dataset. 
+
+```{R}
+clean_routes <- read.csv('data/cleaned/clean_routes.csv')
+str(clean_routes)
+```
+
+***
+
+## Inspect the routes 
+
+Let's plot the routes into a map using `Latitude` and `Longitude`. 
+
+```{R}
+clean_routes %>% 
+  ggplot(aes(x = Longitude , y = Latitude)) +
+  geom_point(shape = 1) +
+  coord_sf(crs = st_crs(4326))
+```
+
+#### `route_id`
+
+The first two digits of `route_id` indicate the state in which the route locates. There are 61 states in the dataset. 
+
+```{R}
+head(clean_routes$route_id , 10)
+```
+
+```{R fig.width = 9}
+clean_routes %>% 
+  tidyr::separate(route_id , c("id1" , "id2") , sep = "_") %>% 
+  ggplot(aes(x = Longitude , y = Latitude)) +
+  geom_point(aes(color = id1) , shape = 1) +
+  coord_sf(crs = st_crs(4326)) +
+  labs(color = "state")
+```
+
+#### `L2_KEY`
+
+`L2_KEY` encodes the EPA level 2 ecoregion. 
+
+```{R}
+unique(clean_routes$L2_KEY) %>% sort
+```
+
+We can plot the ecoregions of the routes in a map. 
+
+```{R fig.width = 9}
+clean_routes %>% 
+  mutate(L2_KEY = stringr::str_match(L2_KEY , "\\d+\\.\\d+")) %>% 
+  ggplot(aes(x = Longitude , y = Latitude)) +
+  geom_point(aes(color = L2_KEY) , shape = 1) +
+  coord_sf(crs = st_crs(4326))
+```
+
+***
+
+## Training/ validation/ test set 
+
+The grouping of training/ validation/ test sets is recorded in `clean_routes` as the column `group`. According the Joseph (2020):  
+
+> To compare the performance of the three modelling approaches, the data were partitioned into a training, validation and test set at the EPA level 2 ecoregion (Roberts et al. 2017). All routes within an ecoregion were assigned to the same partition... For each of the three modelling approaches, routes in the training set were used for parameter estimation... Then, using the trained models, the mean predictive log-density of the validation data was evaluated to identify the best performing model... Finally, the best performing model was retrained using the training and validation data, and its predictive performance was evaluated on the withheld test set. 
+
+```{R}
+clean_routes %>% 
+  mutate(group = factor(group , levels = c("train" , "validation" , "test"))) %>% 
+  xtabs(~group , data = .)
+```
+
+We can see the partition of training/validation/test sets by: 
+
+```{R}
+knitr::kable({
+  clean_routes %>% 
+  mutate(group = factor(group , levels = c("train" , "validation" , "test"))) %>% 
+  xtabs(~group + L2_KEY , data = .) %>% 
+  as_tibble() %>% 
+  tidyr::pivot_wider(names_from = group , values_from = n)
+})
+```
+
+So the 32 Level-2-Ecoregions are randomly assigned to be `training`, `validation` or `test` (the code for this can be found in the `03-extract-route-feature.R` file on Github). We can also look at the routes of `training`, `validation` and `test` set by a map. 
+
+```{R fig.width = 9}
+clean_routes %>% 
+  mutate(group = factor(group , levels = c("train" , "validation" , "test"))) %>% 
+  ggplot(aes(x = Longitude , y = Latitude)) +
+  geom_point(aes(color = group) , shape = 1) +
+  coord_sf(crs = st_crs(4326))
+```
+
+***
+
+## How do I subset the dataset by routes
+
+We discussed last week (16.12) that it is more ideal to randomly remove **blocks** of data instead of just randomly remove **data points**. Now I am wondering which kind of block I should consider when I subset the data. The training data in particular. I thought of two possibilities: 
+
+#### by state
+
+The first one is to subset the data by state. There are 61 states in the dataset. Maybe I can train the model only with some randomly selected states. 
+
+```{R fig.width = 9 , fig.height = 8}
+clean_routes %>% 
+  tidyr::separate(route_id , c("id1" , "id2") , sep = "_") %>% 
+  # only the training set
+  dplyr::filter(group == "train") %>% 
+  # randomly select some states in the training set
+  dplyr::filter(id1 %in% sample(.$id1 , size = round(length(unique(.$id1)) * 1/4) , replace = FALSE )) %>% 
+  # include the validation and test sets
+  dplyr::union({
+    clean_routes %>% 
+      tidyr::separate(route_id , c("id1" , "id2") , sep = "_") %>% 
+      dplyr::filter(group != "train")
+  }) %>% 
+  mutate(subset = "1/4 training") %>% 
+  # the original dataset without subsetting for visualization
+  dplyr::union({
+    clean_routes %>% 
+      tidyr::separate(route_id , c("id1" , "id2") , sep = "_") %>% 
+      mutate(subset = "original")
+  }) %>% 
+  # re-ordering for visualization
+  mutate(group = factor(group , levels = c("train" , "validation" , "test"))) %>% 
+  # plot
+  ggplot(aes(x = Longitude , y = Latitude)) +
+  geom_point(aes(color = id1) , shape = 1) +
+  facet_grid(subset~group) +
+  coord_sf(crs = st_crs(4326)) +
+  theme(legend.position = "bottom") +
+  labs(color = "state")
+```
+
+So the idea of this *subset by state* is illustrated in the graph. In the panel above, only 1/4 (for example) of the states in the training dataset remains, and I am training the three models only with these data from fewer states. 
+
+I think this way of subsetting the data make sense in some way. Of course I am removing blocks of routes instead of random ones. Also I can connect it to some imagined senarios like Trump decided to freeze federal budget and only 1/4 of the states are able to continue with the survey (although Canada is also included in the project and the surveys are carried out by volunteers anyway XD). However, state is a political concept and does not necessarily carry any ecological information. 
+
+#### by ecoregion
+
+The other way is to subset the data by ecoregions. That is, only the data of some ecoregions of the `training ` set remains and is used to train the model. The idea is illustrated in this graph: 
+
+```{R fig.width = 9 , fig.height = 8}
+clean_routes %>% 
+  # only the training set
+  dplyr::filter(group == "train") %>% 
+  # randomly select some ecoregions in the training set
+  dplyr::filter(L2_KEY %in% sample(.$L2_KEY , size = round(length(unique(.$L2_KEY)) * 1/4) , replace = FALSE )) %>% 
+  # include the validation and test sets
+  dplyr::union({
+    clean_routes %>% 
+      dplyr::filter(group != "train")
+  }) %>% 
+  mutate(subset = "1/4 training") %>% 
+  # the original dataset without subsetting for visualization
+  dplyr::union({
+    clean_routes %>% 
+      mutate(subset = "original")
+  }) %>% 
+  # re-ordering for visualization
+  mutate(group = factor(group , levels = c("train" , "validation" , "test"))) %>% 
+  # simplification for visualization
+  mutate(L2_KEY = stringr::str_match(L2_KEY , "\\d+\\.\\d+")) %>% 
+  # plot
+  ggplot(aes(x = Longitude , y = Latitude)) +
+  geom_point(aes(color = L2_KEY) , shape = 1) +
+  facet_grid(subset~group) +
+  coord_sf(crs = st_crs(4326)) +
+  theme(legend.position = "bottom") +
+  labs(color = "Ecoregion")
+```
+
+***
+
+## My questions
+
+My first question would be, which among the two ways of subsetting (by state and by ecoregion) makes more sense? My personal preference is *by state* because I think it's more interesting.  
+
+The second question is, I only should subset the training data, but use the same (original) validation dataset to validate the different models trained with data of different sizes, right? For example I have two models, one trained with 1/4 of the states and the other trained with all the states. When I validate the two model, I still use the original dataset to make the validation results comparable, right? (It's like some "extrapolation" for the model trained with fewer states).   
+
+
+

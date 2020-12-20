@@ -39,8 +39,14 @@ clean_routes %>%
   ggplot(aes(x = Longitude , y = Latitude)) +
   geom_point(aes(color = group) , shape = 1)
 # (train, validate, test), blocked by level 3 ecoregion (03_extract route features)
+# All routes within an ecoregion were assigned to the same partition
 clean_routes %>% 
   xtabs(~group , data = .)
+clean_routes %>% 
+  xtabs(~L2_KEY , data = .)
+clean_routes %>% 
+  xtabs(~group + L2_KEY , data = .)
+# if I subset by states 
 clean_routes %>% 
   tidyr::separate(route_id , c("id1" , "id2") , sep = "_" , remove = FALSE) %>% 
   dplyr::filter(id1 %in% sample(.$id1 , size = round(length(unique(.$id1)) * 1/2) , replace = FALSE )) %>% 
