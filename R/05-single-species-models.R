@@ -8,10 +8,16 @@ library(pbapply)
 library(parallel)
 library(vroom)
 
+# ********** thinned training data ********** #
+# file.remove("data/cleaned/clean_routes.csv")
+
+# 1/4 training data
+# file.copy("data/cleaned/clean_routes/train-validation by state 1_4 train/clean_routes.csv" , "data/cleaned/clean_routes.csv")
 
 # ********** read data ********** #
 bbs <- vroom('data/cleaned/bbs.csv') %>% 
-  left_join(read_csv('data/cleaned/clean_routes.csv')) %>%
+  #left_join(read_csv('data/cleaned/clean_routes.csv')) %>%
+  full_join(read_csv('data/cleaned/clean_routes.csv')) %>%
   mutate(f_l1 = factor(L1_KEY)) %>%  
   split(.$aou)
 
@@ -131,10 +137,12 @@ fit_species_model <- function(orig_df, model, overwrite = FALSE) {
     write_csv(out_path)
 }
 
-
+Sys.time()
 pboptions(use_lb=TRUE)
 cl <- makeCluster(parallel::detectCores())    # makeCluster: Creates a set of copies of R running in parallel and communicating over sockets.
 clusterEvalQ(cl, library(tidyverse))
 clusterEvalQ(cl, library(rstan))
 out <- pblapply(bbs, fit_species_model, cl = cl, model = m_init)
 stopCluster(cl)
+Sys.time()
+

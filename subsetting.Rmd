@@ -188,5 +188,35 @@ My first question would be, which among the two ways of subsetting (by state and
 
 The second question is, I only should subset the training data, but use the same (original) validation dataset to validate the different models trained with data of different sizes, right? For example I have two models, one trained with 1/4 of the states and the other trained with all the states. When I validate the two model, I still use the original dataset to make the validation results comparable, right? (It's like some "extrapolation" for the model trained with fewer states).   
 
+***
+
+## 20201221 re-assign the train/validation/test set by state
+
+```{R fig.width = 9 , fig.height = 8}
+set.seed(1221)
+clean_routes <-  clean_routes %>% 
+  tidyr::separate(route_id , c("state" , "id2") , sep = "_" , remove = FALSE) %>% 
+  left_join({
+  clean_routes %>% 
+    tidyr::separate(route_id , c("state" , "id2") , sep = "_") %>% 
+    distinct(state) %>% 
+    mutate(group_by.state = sample(c("train" , "validation" , "test") , 
+                                   size = nrow(.) ,
+                                   replace = TRUE , prob = c(1/3,1/3,1/3)))
+  } , by = "state") 
+
+clean_routes%>% 
+  # re-ordering for visualization
+  mutate(group_by.state = factor(group_by.state , levels = c("train" , "validation" , "test"))) %>%
+  ggplot(aes(x = Longitude , y = Latitude , color = state)) +
+  geom_point(shape = 1) +
+  facet_grid(~group_by.state) +
+  coord_sf(crs = st_crs(4326)) +
+  theme(legend.position = "bottom")
+
+clean_routes %>% 
+  xtabs(~group_by.state , data = .)
+```
+
 
 
