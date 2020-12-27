@@ -10,7 +10,8 @@ os.chdir("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Re
 bbs = pd.merge(
     pd.read_csv("data/cleaned/bbs.csv"),
     pd.read_csv("data/cleaned/clean_routes.csv"),
-    how="left",
+    #how="left",
+    how="inner",
     on="route_id",
 )
 

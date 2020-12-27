@@ -581,7 +581,7 @@ os.chdir("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Re
 print("Training and saving single-species results")
 for sp in tqdm(dataset.cat_ix["english"].keys()):
     fit_single_species_model(sp, model=OneSpeciesNet)
-os.chdar("python")
+os.chdir("python")
 
 
 
