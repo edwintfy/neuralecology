@@ -18,8 +18,11 @@ species <- list.files(path = 'out', pattern = '_ssnet.csv', full.names = TRUE) %
   gsub('out/', '', .) %>%
   gsub('\\_ssnet.csv', '', .)
 
+# the negative log likelihood for the first species 
 load_ll(species[1])
 
+# all the species 
+Sys.time()
 pboptions(use_lb = TRUE)
 # Creates a set of copies of R running in parallel and communicating over sockets.
 cl <- makeCluster(parallel::detectCores())       # parallel::detectCores()... 4 cores on my mac
@@ -31,7 +34,7 @@ clusterEvalQ(cl, source('R/utils.R'))
 # Adding Progress Bar to '*apply' Functions
 ll_dfs <- pblapply(species, load_ll, cl = cl)
 stopCluster(cl)
-
+Sys.time()
 
 ll_df <- ll_dfs %>%
   lapply(function(x) x$nll) %>%
@@ -54,6 +57,7 @@ ll_df %>%
 
 overall_comparisons <- ll_df %>%
   group_by(group) %>%
+  #filter(ss != Inf) %>% 
   summarize(nn_nll = mean(nn, na.rm = TRUE),
             ss_nll = mean(ss, na.rm = TRUE), 
             sn_nll = mean(ssnn, na.rm = TRUE))
