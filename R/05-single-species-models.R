@@ -20,6 +20,13 @@ library(vroom)
 # 1/2 training data
 # file.copy("data/cleaned/clean_routes/train-validation by state 1_2 train/clean_routes.csv" , "data/cleaned/clean_routes.csv")
 
+# 1/8 training data
+# file.copy("data/cleaned/clean_routes/train-validation by state 1_8 train/clean_routes.csv" , "data/cleaned/clean_routes.csv")
+
+# 1/16 training data
+# file.copy("data/cleaned/clean_routes/train-validation by state 1_16 train/clean_routes.csv" , "data/cleaned/clean_routes.csv")
+
+
 # ********** read data ********** #
 bbs <- vroom('data/cleaned/bbs.csv') %>% 
   #left_join(read_csv('data/cleaned/clean_routes.csv')) %>%
