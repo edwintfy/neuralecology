@@ -1,5 +1,5 @@
 ##############################################################
-# m03 compare thinned-model output
+# m03 compare thinned-model output: negative log likelihood
 ##############################################################
 
 library(dplyr) ; library(ggplot2)
