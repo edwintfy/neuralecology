@@ -14,14 +14,14 @@ library(pbapply)
 #  select(route_id , group)
 
 # 1/2 training data
-#setwd("/Volumes/Li/Neuralecology_out/二分之一training data")
-#routes <- read_csv("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/Neuralecology_VersionControl/Neuralecology_vc/data/cleaned/clean_routes/train-validation by state 1_2 train/clean_routes.csv") %>% 
-#  select(route_id , group)
+setwd("/Volumes/Li/Neuralecology_out/二分之一training data")
+routes <- read_csv("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/Neuralecology_VersionControl/Neuralecology_vc/data/cleaned/clean_routes/train-validation by state 1_2 train/clean_routes.csv") %>% 
+  select(route_id , group)
 
 # 1/4 training data
-setwd("/Volumes/Li/Neuralecology_out/四分之一training data")
-routes <- read_csv("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/Neuralecology_VersionControl/Neuralecology_vc/data/cleaned/clean_routes/train-validation by state 1_4 train/clean_routes.csv") %>% 
-  select(route_id , group)
+#setwd("/Volumes/Li/Neuralecology_out/四分之一training data")
+#routes <- read_csv("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/Neuralecology_VersionControl/Neuralecology_vc/data/cleaned/clean_routes/train-validation by state 1_4 train/clean_routes.csv") %>% 
+#  select(route_id , group)
 
 # 1/8 training data
 #setwd("/Volumes/Li/Neuralecology_out/八分之一training data")
@@ -195,5 +195,5 @@ AUC_df <- all.species_predicted %>%
 
 write.csv(AUC_df , file = "out/AUC.csv")
 
-#write.csv(AUC_df , "/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/Neuralecology_VersionControl/Neuralecology_vc/thinning output comparison/AUC_-3.csv")
+#write.csv(AUC_df , "/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/Neuralecology_VersionControl/Neuralecology_vc/thinning output comparison/AUC_-1.csv")
 
