@@ -7,7 +7,7 @@ library(dplyr) ; library(ggplot2)
 # ========================================
 # 讀入檔案(nll-comps.csv)
 # ========================================
-nll_files <- list.files("thinning output comparison" , full.names = TRUE)
+nll_files <- list.files("thinning output comparison" , pattern = "nll" , full.names = TRUE)
 
 for(i in 1:length(nll_files)){
   if(i == 1){
@@ -46,4 +46,20 @@ nll %>%
   theme_bw() +
   theme(legend.position = "top")
 
+
+nll %>% 
+  mutate(thin = as.integer(thin)) %>% 
+  mutate(thin2 = 2^thin) %>% 
+  arrange(thin) %>%
+  mutate(model = factor(model , levels = c("nn" , "sn" , "ss"))) %>% 
+  filter(group == "Validation") %>% 
+  ggplot(aes(x = thin2 , y = nll , color = model)) +
+  geom_line() +
+  geom_point() +
+  scale_color_discrete(labels = c("nn" = "multi-species deep \nneural hierarchical model" , "sn" = "single-species \nneural hierarchical model" , "ss" = "single-species \nbaseline model")) +
+  scale_x_continuous(breaks = 2^(-4:0) , labels = paste0("1/" , 1/2^(-4:0))) +
+  labs(x = "training data size (compared to full training data)" , y = "negative log-likelihood") +
+  theme_bw() +
+  theme(legend.position = "top" , 
+        axis.text.x = element_text(angle = 90 , vjust = 0.5 , hjust = 1))
 
