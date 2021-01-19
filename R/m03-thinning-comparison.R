@@ -47,6 +47,9 @@ nll %>%
   theme(legend.position = "top")
 
 
+# ========================================
+# graoh with nll and AUC together
+# ========================================
 nll %>% 
   mutate(thin = as.integer(thin)) %>% 
   mutate(thin2 = 2^thin) %>% 
