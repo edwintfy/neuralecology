@@ -4,14 +4,14 @@ library(parallel)
 library(assertthat)
 library(pROC)
 library(patchwork)
-source('R/utils.R')
+source('R/utils-3.R')
 
 theme_set(theme_minimal() + 
             theme(panel.grid.minor = element_blank()))
 
-species <- list.files('out_final_gru', '_finalnet.csv', full.names = TRUE) %>%
-  gsub('out_final_gru/', '', .) %>%
-  gsub('\\_finalnet.csv', '', .)
+species <- list.files('out_gru_3', '_nnet.csv', full.names = TRUE) %>%
+  gsub('out_gru_3/', '', .) %>%
+  gsub('\\_nnet.csv', '', .)
 
 load_ll(species[1])
 
@@ -20,7 +20,7 @@ cl <- makeCluster(parallel::detectCores())
 clusterExport(cl, c('load_ll'))
 clusterEvalQ(cl, library(assertthat))
 clusterEvalQ(cl, library(tidyverse))
-clusterEvalQ(cl, source('R/utils.R'))
+clusterEvalQ(cl, source('R/utils-3.R'))
 ll_dfs <- pblapply(species, load_ll, cl = cl)
 stopCluster(cl)
 
@@ -34,7 +34,7 @@ ll_df <- ll_dfs %>%
                         'Validation data'))
 
 ll_df %>%
-  write_csv('out/train-valid-nll.csv')
+  write_csv('out_round_3/train-valid-nll.csv')
 
 # check for NA values in the NLL values (which result from underflow)
 ll_df %>%
@@ -50,4 +50,5 @@ overall_comparisons <- ll_df %>%
             lstm_nll = mean(lstm, na.rm = TRUE), 
             vrnn_nll = mean(vrnn, na.rm = TRUE))
 overall_comparisons
-write_csv(overall_comparisons, 'out/nll-comps.csv')
+write_csv(overall_comparisons, 'out_round_3/nll-comps.csv')
+

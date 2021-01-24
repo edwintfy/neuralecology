@@ -7,7 +7,7 @@ library(elevatr)
 library(rmapshaper)
 library(rnaturalearth)
 
-ecoregions <- st_read('data/NA_CEC_Eco_Level3.shp') %>%
+ecoregions <- st_read('data/NA_CEC_Eco_Level3/NA_CEC_Eco_Level3.shp') %>%
   st_transform(4326)
 
 # Extract the ecoregion data for BBS routes -----------------
@@ -39,10 +39,10 @@ get_ecoregions <- function(sf, ecoregions) {
 
 bioclim_raster <- 'data/bioclim/bioclim_pca.rds'
 if (!file.exists(bioclim_raster)) {
-  download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.0/tif/base/wc2.0_5m_bio.zip', 
-                'data/wc2.0_5m_bio.zip')
-  dir.create('data/bioclim', showWarnings = FALSE)
-  unzip('data/wc2.0_5m_bio.zip', exdir = 'data/bioclim')
+  #download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.0/tif/base/wc2.0_5m_bio.zip', 
+  #              'data/wc2.0_5m_bio.zip')
+  #dir.create('data/bioclim', showWarnings = FALSE)
+  #unzip('data/wc2.1_5m_bio.zip', exdir = 'data/bioclim')
   bioclim_files <- list.files(path = 'data/bioclim', pattern = '.tif', 
                               full.names = TRUE)
   bioclim <- stack(bioclim_files) 
@@ -95,12 +95,12 @@ elev_df <- as.data.frame(elev) %>%
   dplyr::select(route_id, elevation)
 
 # get grip road density data
-roads_url <- 'http://geoservice.pbl.nl/download/opendata/GRIP4/GRIP4_density_total.zip'
-if (!file.exists('data/grip4_total_dens_m_km2.asc')) {
-  download.file(roads_url, destfile = file.path('data', basename(roads_url)))
-  unzip(file.path('data', basename(roads_url)), exdir = 'data')
-}
-road_den <- raster('data/grip4_total_dens_m_km2.asc')
+#roads_url <- 'http://geoservice.pbl.nl/download/opendata/GRIP4/GRIP4_density_total.zip'
+# if (!file.exists('data/grip4_total_dens_m_km2.asc')) {
+#   download.file(roads_url, destfile = file.path('data', basename(roads_url)))
+#   unzip(file.path('data', basename(roads_url)), exdir = 'data')
+# }
+road_den <- raster('data/GRIP4_density_total/grip4_total_dens_m_km2.asc')
 projection(road_den) <- st_crs(routes_sf)$proj4string
 road_den <- projectRaster(road_den, crs = CRS(st_crs(routes_sf)$proj4string))
 routes_sf$road_den <- raster::extract(road_den, as(routes_sf, "Spatial"), 

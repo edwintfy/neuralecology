@@ -41,7 +41,7 @@ def set_seed(seed):
     random.seed(seed)
 
 
-set_seed(2147483647)
+set_seed(1000483647)
 
 
 ## Reading and parsing the Breeding Bird Survey Data

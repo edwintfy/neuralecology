@@ -41,7 +41,7 @@ def set_seed(seed):
     random.seed(seed)
 
 
-set_seed(2147483647)
+set_seed(1745349583)
 
 
 ## Reading and parsing the Breeding Bird Survey Data
@@ -117,7 +117,7 @@ class MultiNet(nn.Module):
             nn.Linear(self.h_dim, self.h_dim), self.activation
         )
 
-        self.to_h_t = nn.RNN(
+        self.to_h_t = nn.GRU(
             input_size=self.h_dim,
             hidden_size=self.h_dim * 3,
             num_layers=2,
@@ -287,7 +287,7 @@ for epoch in range(n_epoch):
 
 ## Save species-specific predictions
 
-weight_dir = os.path.join("out_final_vrnn", "weights")
+weight_dir = os.path.join("out_final_gru", "weights")
 if not os.path.exists(weight_dir):
     os.mkdir(weight_dir)
 
@@ -346,7 +346,7 @@ for sp in tqdm(dataset.cat_ix["english"].keys()):
         psi0_df = pd.DataFrame(np.concatenate(sp_psi0), columns=["psi0"])
 
         sp_name_lower = re.sub(" ", "_", sp.lower())
-        out_path = f"out_final_vrnn/{sp_name_lower}_finalnet.csv"
+        out_path = f"out_final_gru/{sp_name_lower}_finalnet.csv"
         res = pd.concat(
             (
                 sp_df.filter(
@@ -423,4 +423,4 @@ h_psi0_df = pd.melt(h_psi0_df, id_vars=["row_idx", "par"]).rename(
 
 # concatenate all route vectors into one data frame and save
 h_df = pd.concat((h_phi_df, h_gamma_df, h_p_df, h_psi0_df), axis=0, sort=True)
-h_df.to_csv("out_final_vrnn/route_embeddings.csv", index=False)
+h_df.to_csv("out_final_gru/route_embeddings.csv", index=False)

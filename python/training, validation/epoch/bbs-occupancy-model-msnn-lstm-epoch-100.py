@@ -20,6 +20,7 @@ from torch.utils.data import Dataset, DataLoader
 import torch.backends.cudnn as cudnn
 import os
 import random
+import csv
 
 # custom modules
 import dataset
@@ -117,7 +118,7 @@ class MultiNet(nn.Module):
             nn.Linear(self.h_dim, self.h_dim), self.activation
         )
 
-        self.to_h_t = nn.RNN(
+        self.to_h_t = nn.LSTM(
             input_size=self.h_dim,
             hidden_size=self.h_dim * 3,
             num_layers=2,
@@ -237,8 +238,13 @@ class MultiNet(nn.Module):
 
 
 # Training the neural network
+idlist = []
+train = []
+valid = []
+eplist = []
 
-n_epoch = 5
+# Epoch changed from 5 to 100
+n_epoch = 100
 batch_size = 2 ** 11
 print(f"Batch size is {batch_size}")
 
@@ -249,10 +255,7 @@ valid_loader = DataLoader(
     bbs_valid, batch_size=batch_size * 4, num_workers=multiprocessing.cpu_count(), shuffle=True
 )
 
-
-
-# Training the final model
-final_net = MultiNet(
+net = MultiNet(
     num_sp=nsp,
     num_gn=ngn,
     num_fm=nfm,
@@ -262,165 +265,46 @@ final_net = MultiNet(
     nt=nt,
     nx_p=nx_p,
 )
-final_net.to(device)
-final_optimizer = optim.Adam(final_net.parameters(), weight_decay=1e-3)
-bbs_retrain = dataset.BBSData(dataset.bbs.query("group != 'test'"))
-retrain_loader = DataLoader(
-    bbs_retrain, batch_size=batch_size, shuffle=True, num_workers=multiprocessing.cpu_count()
-)
-retrain_loss = list()
+net.to(device)
 
-print("Retraining the final model...")
+optimizer = optim.Adam(net.parameters(), weight_decay=1e-3)
+
+train_loss = list()
+valid_loss = list()
+
+print("Training the multispecies model...")
+i = 0
 for epoch in range(n_epoch):
     print("Starting epoch " + str(epoch + 1) + " of " + str(n_epoch) + "...")
+    eplist.append(epoch)
+    i += 1
+    idlist.append(i)
     with torch.enable_grad():
-        final_net.train()
-        retrain_loss.append(
+        net.train()
+        train_loss.append(
             utils.fit_epoch(
-                final_net,
-                retrain_loader,
-                training=True,
-                optimizer=final_optimizer,
-                pb=True,
+                net, train_loader, training=True, optimizer=optimizer, pb=True
             )
         )
-
-## Save species-specific predictions
-
-weight_dir = os.path.join("out_final_vrnn", "weights")
-if not os.path.exists(weight_dir):
-    os.mkdir(weight_dir)
-
-
-def melt(a, cols=["row_idx", "t", "h_dim", "value"]):
-    """ Convert an nd array to a data frame. """
-    res = pd.DataFrame([tuple(list(x) + [val]) for x, val in np.ndenumerate(a)])
-    res.columns = cols
-    return res
-
-
-print("Saving output from final model...")
-for sp in tqdm(dataset.cat_ix["english"].keys()):
-    final_net.eval()
+    train.append(np.mean(train_loss[-1]))
     with torch.no_grad():
-        sp_df = dataset.bbs.query("english == @sp")
-        years = list(sp_df.filter(regex="^[0-9]{4}", axis=1))
-        sp_ds = dataset.BBSData(sp_df)
-        sp_loader = DataLoader(
-            sp_ds,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=multiprocessing.cpu_count(),
-            pin_memory=True,
+        net.eval()
+        valid_loss.append(
+            utils.fit_epoch(net, valid_loader, training=False, pb=False)
         )
+        print(np.mean(valid_loss[-1]))
+    valid.append(np.mean(valid_loss[-1]))
 
-        sp_p = []
-        sp_gamma = []
-        sp_phi = []
-        sp_psi0 = []
-        h_p = []
-        h_phi = []
-        h_gamma = []
-        h_psi0 = []
+print("Validation loss for the multispecies model:")
+print([np.mean(l) for l in valid_loss])
 
-        for i_batch, xy in enumerate(sp_loader):
-            _, out = utils.bbs_nll(xy, model=final_net)
-            sp_p.append(torch.sigmoid(out["logit_p"]).cpu().detach().numpy())
-            sp_gamma.append(out["gamma"].cpu().detach().numpy())
-            sp_phi.append(out["phi"].cpu().detach().numpy())
-            sp_psi0.append(out["psi0"].cpu().detach().numpy())
-            h_p.append(out["h_p"].cpu().detach().numpy())
-            h_phi.append(out["h_phi"].cpu().detach().numpy())
-            h_gamma.append(out["h_gamma"].cpu().detach().numpy())
-            h_psi0.append(out["h_psi0"].cpu().detach().numpy())
+print('Length idlist: ', len(idlist))            
+print('Length eplist: ', len(eplist))
+print('Length train: ', len(train))
+print('Length valid: ', len(valid))
 
-        p_df = pd.DataFrame(
-            np.concatenate(sp_p), columns=["p_" + y for y in years]
-        )
-        gamma_df = pd.DataFrame(
-            np.concatenate(sp_gamma), columns=["gamma_" + y for y in years[:-1]]
-        )
-        phi_df = pd.DataFrame(
-            np.concatenate(sp_phi), columns=["phi_" + y for y in years[:-1]]
-        )
-        psi0_df = pd.DataFrame(np.concatenate(sp_psi0), columns=["psi0"])
+print('Write file')
+with open('out_lstm_epoch_100.csv', 'w+', newline='') as file:
+    writer= csv.writer(file)
+    writer.writerows(zip(idlist,eplist,train,valid))
 
-        sp_name_lower = re.sub(" ", "_", sp.lower())
-        out_path = f"out_final_vrnn/{sp_name_lower}_finalnet.csv"
-        res = pd.concat(
-            (
-                sp_df.filter(
-                    regex="^[0-9]{4}$|sp.bbs|route_id|Lat|Lon", axis=1
-                ).reset_index(),
-                p_df,
-                gamma_df,
-                phi_df,
-                psi0_df,
-            ),
-            axis=1,
-        )
-        res.to_csv(out_path, index=False, na_rep="NA")
-
-        # write out weights, which are constant within species
-        # (hence we can extract first row ~~ first sample from the minibatch)
-        psi0_weight_df = melt(
-            out["psi0_weights"][0, :].cpu().detach().numpy(),
-            cols=["h_dim", "value"],
-        )
-        psi0_weight_df["par"] = "psi0"
-
-        p_weight_df = melt(
-            out["p_weights"][0, :].cpu().detach().numpy(),
-            cols=["h_dim", "value"],
-        )
-        p_weight_df["par"] = "p"
-
-        phi_weight_df = melt(
-            out["phi_weights"][0, :].cpu().detach().numpy(),
-            cols=["h_dim", "value"],
-        )
-        phi_weight_df["par"] = "phi"
-
-        gamma_weight_df = melt(
-            out["gamma_weights"][0, :].cpu().detach().numpy(),
-            cols=["h_dim", "value"],
-        )
-        gamma_weight_df["par"] = "gamma"
-
-        weight_df = pd.concat(
-            (phi_weight_df, gamma_weight_df, p_weight_df, psi0_weight_df),
-            axis=0,
-            sort=True,
-        )
-        weight_df.to_csv(
-            os.path.join(weight_dir, f"{sp_name_lower}_weights.csv"),
-            index=False,
-            na_rep="NA",
-        )
-
-
-# Write out final route vector representations
-
-h_phi_df = melt(
-    np.concatenate(h_phi).reshape((-1, final_net.nt - 1, final_net.h_dim))
-)
-h_phi_df["par"] = "phi"
-h_gamma_df = melt(
-    np.concatenate(h_gamma).reshape((-1, final_net.nt - 1, final_net.h_dim))
-)
-h_gamma_df["par"] = "gamma"
-h_p_df = melt(np.concatenate(h_p).reshape((-1, final_net.nt, final_net.h_dim)))
-h_p_df["par"] = "p"
-
-h_psi0_df = pd.DataFrame(np.concatenate(h_psi0))
-h_psi0_df["par"] = "psi0"
-h_psi0_df["row_idx"] = list(range(h_psi0_df.shape[0]))
-
-# reshape to permit concatenation
-h_psi0_df = pd.melt(h_psi0_df, id_vars=["row_idx", "par"]).rename(
-    columns={"variable": "h_dim"}
-)
-
-# concatenate all route vectors into one data frame and save
-h_df = pd.concat((h_phi_df, h_gamma_df, h_p_df, h_psi0_df), axis=0, sort=True)
-h_df.to_csv("out_final_vrnn/route_embeddings.csv", index=False)

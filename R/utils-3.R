@@ -1,14 +1,14 @@
 load_ll <- function(sp) {
   
-  gru_fit <- file.path('out_gru_1', paste0(sp, '_nnet.csv')) %>%
+  gru_fit <- file.path('out_gru_3', paste0(sp, '_nnet.csv')) %>%
     read_csv %>%
     mutate(method = 'gru')
   
-  lstm_fit <- file.path('out_lstm_1', paste0(sp, '_nnet.csv')) %>%
+  lstm_fit <- file.path('out_lstm_3', paste0(sp, '_nnet.csv')) %>%
     read_csv %>%
     mutate(method = 'lstm')
   
-  vrnn_fit <- file.path('out_rnn_1', paste0(sp, '_nnet.csv')) %>%
+  vrnn_fit <- file.path('out_rnn_3', paste0(sp, '_nnet.csv')) %>%
     read_csv %>%
     mutate(method = 'vrnn')
   
