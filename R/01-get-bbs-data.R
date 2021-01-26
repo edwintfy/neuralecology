@@ -4,7 +4,7 @@
 
 # *********** dependent libraries ********** #
 
-library(bbsBayes)      # install.packages("/Volumes/GoogleDrive/我的雲端硬碟/ich/Documents/2020/【ACA】Reproducibility of Published Statistical Analyses/requirement/bbsBayes_2.3.4.2020.tgz", repos = NULL, type = .Platform$pkgType)
+library(bbsBayes)      # install.packages("requirement/bbsBayes_2.3.4.2020.tgz", repos = NULL, type = .Platform$pkgType)
 library(tidyverse)
 library(here)
 
